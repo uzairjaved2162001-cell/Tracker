@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0a0a">
+<title>Tracker</title>
+<meta name="apple-mobile-web-app-title" content="Tracker">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  html, body { background: #0a0a0a; }
+  body { -webkit-tap-highlight-color: transparent; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #fafafa; }
+  .sg { font-family: 'Space Grotesk', Inter, sans-serif; }
+  .noscroll::-webkit-scrollbar { display: none; }
+  .card { background: #161616; border: 1px solid #2a2a2a; }
+  .field { background: #0a0a0a; border: 1px solid #2a2a2a; color: #fafafa; }
+  .field:focus { outline: none; border-color: #dc2626; }
+  .field::placeholder { color: #8a8a8a; }
+  input[type=date] { color-scheme: dark; min-height: 44px; }
+  .tab-on { color: #ef4444; } .tab-off { color: #8a8a8a; }
+</style>
+</head>
+<body class="min-h-screen pb-28">
+
+<header class="max-w-md mx-auto px-5 pt-7" style="padding-top: calc(16px + env(safe-area-inset-top))">
+  <div class="flex justify-between items-center">
+    <div>
+      <p id="syncStatus" class="text-[11px] text-[#a3a3a3] font-semibold uppercase tracking-wider">Saved on this phone</p>
+      <h1 class="sg text-2xl font-bold">Tracker</h1>
+    </div>
+    <div class="card flex items-center gap-1 rounded-full p-1">
+      <button onclick="shiftMonth(-1)" aria-label="Previous month" class="w-9 h-9 rounded-full text-[#d4d4d4] text-lg">‹</button>
+      <span id="monthLabel" class="text-sm font-semibold w-24 text-center">—</span>
+      <button onclick="shiftMonth(1)" aria-label="Next month" class="w-9 h-9 rounded-full text-[#d4d4d4] text-lg">›</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-md mx-auto px-5 mt-4">
+
+  <!-- HOME -->
+  <section id="view-home">
+    <div class="card flex rounded-2xl p-1 gap-1">
+      <button id="seg-spend" onclick="setMode('spend')" class="flex-1 h-10 rounded-xl text-sm font-semibold">Spending</button>
+      <button id="seg-income" onclick="setMode('income')" class="flex-1 h-10 rounded-xl text-sm font-semibold">Income</button>
+    </div>
+
+    <div class="flex items-center gap-5 py-5">
+      <div id="ring" class="w-36 h-36 rounded-full shrink-0 flex items-center justify-center" style="background:#1f1f1f">
+        <div class="w-[104px] h-[104px] rounded-full bg-[#0a0a0a] flex flex-col items-center justify-center">
+          <span id="ringLabel" class="text-[11px] text-[#a3a3a3]">Spent</span>
+          <span id="ringTotal" class="sg text-base font-bold">₨ 0</span>
+        </div>
+      </div>
+      <div id="legend" class="flex-1 min-w-0 space-y-2 text-xs"></div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-2">
+      <div class="card rounded-2xl p-3"><p class="text-[11px] text-[#a3a3a3]">Income</p><p id="sumIncome" class="sg text-[15px] font-bold text-[#fca5a5] mt-0.5">₨ 0</p></div>
+      <div class="card rounded-2xl p-3"><p class="text-[11px] text-[#a3a3a3]">Left over</p><p id="sumLeft" class="sg text-[15px] font-bold mt-0.5">₨ 0</p></div>
+      <div class="card rounded-2xl p-3"><p class="text-[11px] text-[#a3a3a3]">Owed to you</p><p id="sumOwed" class="sg text-[15px] font-bold text-[#f87171] mt-0.5">₨ 0</p></div>
+    </div>
+
+    <div id="budgetWrap" class="card rounded-2xl p-3 mt-2 hidden">
+      <div class="flex justify-between text-[11px] text-[#a3a3a3] mb-1.5"><span id="budgetText"></span><span id="budgetPct"></span></div>
+      <div class="h-2 rounded-full bg-[#262626] overflow-hidden"><div id="budgetBar" class="h-full rounded-full" style="width:0%;background:#dc2626"></div></div>
+    </div>
+
+    <input type="text" id="searchInput" oninput="renderList()" placeholder="Search title or person…" class="field w-full rounded-xl px-3 py-2.5 text-sm mt-4">
+    <div id="chips" class="flex gap-2 overflow-x-auto noscroll pt-3 pb-1"></div>
+
+    <div class="flex justify-between items-center mt-3 mb-2">
+      <h3 id="listTitle" class="font-semibold text-sm text-[#d4d4d4]">Entries</h3>
+      <span id="txCount" class="text-xs text-[#a3a3a3]">0 items</span>
+    </div>
+    <div id="transactionList" class="space-y-2"></div>
+  </section>
+
+  <!-- LOANS -->
+  <section id="view-loans" class="hidden">
+    <h2 class="sg text-lg font-bold mb-1">Loans</h2>
+    <p class="text-xs text-[#a3a3a3] mb-3">All-time balances by person. Add a person's name when you record a loan or repayment.</p>
+    <div id="peopleList" class="space-y-3"></div>
+  </section>
+
+  <!-- PLAN -->
+  <section id="view-plan" class="hidden space-y-4">
+    <h2 class="sg text-lg font-bold">Plan</h2>
+    <div class="card rounded-2xl p-4">
+      <h3 class="font-bold text-sm mb-1">Monthly budgets</h3>
+      <p class="text-xs text-[#a3a3a3] mb-3">Leave blank for no limit. Bars turn bright red when you go over.</p>
+      <label class="flex items-center justify-between gap-3 py-2 border-b border-[#262626]">
+        <span class="text-sm font-semibold">Total budget</span>
+        <input id="budgetTotal" type="number" inputmode="decimal" placeholder="₨" class="field w-32 rounded-lg px-3 py-2 text-sm text-right">
+      </label>
+      <div id="catBudgets"></div>
+      <button onclick="saveBudgets()" class="mt-3 w-full bg-[#dc2626] text-white font-semibold py-3 rounded-xl text-sm">Save budgets</button>
+    </div>
+
+    <div class="card rounded-2xl p-4">
+      <h3 class="font-bold text-sm mb-1">Backup &amp; import</h3>
+      <p class="text-xs text-[#a3a3a3] mb-3">Your entries are stored on this phone. Copy them as CSV now and then, and keep the copy in Notes or Excel.</p>
+      <button onclick="copyCSV()" class="w-full bg-[#1f1f1f] text-[#fafafa] font-semibold py-3 rounded-xl text-sm">Copy all entries (CSV)</button>
+      <textarea id="csvBox" class="field hidden mt-3 w-full h-32 text-[11px] font-mono rounded-lg p-2" readonly></textarea>
+      <p class="text-xs text-[#a3a3a3] mt-4 mb-2">Import: paste CSV copied from the old tracker (or this one), then tap Import. Duplicates are skipped.</p>
+      <textarea id="importBox" placeholder="Date,Title,Category,Person,Amount (PKR)" class="field w-full h-28 text-[11px] font-mono rounded-lg p-2"></textarea>
+      <button onclick="importCSV()" class="mt-2 w-full bg-[#dc2626] text-white font-semibold py-3 rounded-xl text-sm">Import entries</button>
+    </div>
+
+    <div class="card rounded-2xl p-4">
+      <h3 class="font-bold text-sm mb-1">iPhone quick-add (Back Tap)</h3>
+      <p class="text-xs text-[#a3a3a3] mb-2">Links ending in <b class="text-[#fafafa]">#add</b> open straight to the Add form.</p>
+      <ol class="text-xs text-[#d4d4d4] list-decimal pl-4 space-y-1">
+        <li>Shortcuts app → <b>+</b> → add action <b>Open URLs</b> → paste this app's web address with <b>#add</b> at the end → name it “Add Expense”.</li>
+        <li>Settings → Accessibility → Touch → Back Tap → Double Tap → pick <b>Add Expense</b>.</li>
+      </ol>
+    </div>
+  </section>
+</main>
+
+<!-- Bottom nav -->
+<nav class="fixed bottom-0 inset-x-0 z-40 bg-[#0a0a0a]/95 border-t border-[#262626]" style="padding-bottom: env(safe-area-inset-bottom)">
+  <div class="max-w-md mx-auto grid grid-cols-4 items-center h-16">
+    <button onclick="go('home')" id="tab-home" class="flex flex-col items-center gap-0.5 text-[11px] font-semibold">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 4l9 7"></path><path d="M5 10v10h14V10"></path></svg>Home</button>
+    <button onclick="go('loans')" id="tab-loans" class="flex flex-col items-center gap-0.5 text-[11px] font-semibold">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M17 11h5M19.5 8.5v5"></path></svg>Loans</button>
+    <button onclick="go('plan')" id="tab-plan" class="flex flex-col items-center gap-0.5 text-[11px] font-semibold">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Plan</button>
+    <div class="flex justify-center">
+      <button onclick="openSheet()" aria-label="Add entry" class="w-14 h-14 -mt-6 rounded-2xl bg-[#dc2626] text-white flex items-center justify-center active:scale-95 transition" style="box-shadow:0 12px 30px rgba(220,38,38,0.4)">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- Add / Edit sheet -->
+<div id="sheet" class="fixed inset-0 hidden z-50 flex items-end sm:items-center justify-center" style="background:rgba(0,0,0,0.75)">
+  <div class="w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 max-h-[92vh] overflow-y-auto bg-[#161616] border-t border-[#2a2a2a]" style="padding-bottom: calc(20px + env(safe-area-inset-bottom))">
+    <div class="flex justify-between items-center mb-4">
+      <h3 id="sheetTitle" class="sg text-lg font-bold">New entry</h3>
+      <button onclick="closeSheet()" aria-label="Close" class="w-10 h-10 rounded-xl bg-[#1f1f1f] text-[#d4d4d4]">✕</button>
+    </div>
+    <form id="txForm" onsubmit="saveEntry(event)" class="space-y-4">
+      <label class="block text-xs text-[#a3a3a3]">Amount (PKR)
+        <input type="number" id="fAmount" required min="0.01" step="any" inputmode="decimal" placeholder="0" class="sg w-full bg-transparent border-0 border-b-2 border-[#dc2626] text-[#fafafa] text-4xl font-bold py-1 mt-1 focus:outline-none">
+      </label>
+      <div>
+        <span class="block text-xs text-[#a3a3a3] mb-2">Category</span>
+        <div id="catPick" class="flex flex-wrap gap-2"></div>
+      </div>
+      <label class="block text-xs text-[#a3a3a3]">Description
+        <input type="text" id="fTitle" required maxlength="80" placeholder="e.g. Groceries" class="field w-full rounded-xl px-3 py-3 text-sm mt-1">
+      </label>
+      <label id="personWrap" class="block text-xs text-[#a3a3a3] hidden">Person
+        <input type="text" id="fPerson" list="peopleNames" maxlength="40" placeholder="e.g. Ali" class="field w-full rounded-xl px-3 py-3 text-sm mt-1">
+        <datalist id="peopleNames"></datalist>
+      </label>
+      <label class="block text-xs text-[#a3a3a3]">Date
+        <input type="date" id="fDate" required class="field w-full rounded-xl px-3 py-2 text-sm mt-1">
+      </label>
+      <button type="submit" class="w-full bg-[#dc2626] text-white font-bold py-3.5 rounded-2xl text-sm">Save entry</button>
+      <button type="button" id="deleteBtn" onclick="deleteEditing()" class="hidden w-full bg-[#1f1f1f] text-[#f87171] font-semibold py-3 rounded-2xl text-sm">Delete entry</button>
+    </form>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed left-1/2 -translate-x-1/2 bottom-24 z-50 hidden bg-[#fafafa] text-[#0a0a0a] text-sm rounded-xl px-4 py-3 shadow-xl flex items-center gap-4">
+  <span id="toastText"></span>
+  <button id="toastAction" class="font-bold text-[#b91c1c]">Undo</button>
+</div>
+
+<script>
+const LS_KEY = 'pkr_transactions', LS_SET = 'pkr_settings';
+const CATS = {
+  'Food & Dining': '#ef4444', 'Utilities': '#fafafa', 'Transport': '#991b1b', 'Shopping': '#f87171',
+  'Other': '#737373', 'Income': '#fca5a5', 'Loan Given': '#b91c1c', 'Loan Repaid': '#fecaca'
+};
+const SPEND = ['Food & Dining', 'Utilities', 'Transport', 'Shopping', 'Other'];
+const LOAN = ['Loan Given', 'Loan Repaid'];
+const SRC_COLORS = ['#dc2626', '#fafafa', '#7f1d1d', '#f87171', '#737373'];
+
+let transactions = [], settings = { budget: 0, catBudgets: {} };
+let col = null, view = 'home', mode = 'spend', filterCat = 'All', editingId = null, pickCat = 'Food & Dining';
+let month = monthKey(todayISO());
+
+// ---------- helpers ----------
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function jsq(s) { return esc(String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")); }
+function fmt(n) { return '₨ ' + Math.round(Number(n) || 0).toLocaleString('en-PK'); }
+function pad(n) { return String(n).padStart(2, '0'); }
+function isoOf(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function todayISO() { return isoOf(new Date()); }
+function monthKey(iso) { return iso.slice(0, 7); }
+function monthName(key) { const [y, m] = key.split('-'); return new Date(+y, +m - 1, 1).toLocaleDateString('en-PK', { month: 'short', year: 'numeric' }); }
+function niceDate(iso) { const [y, m, d] = iso.split('-'); return new Date(+y, +m - 1, +d).toLocaleDateString('en-PK', { weekday: 'short', day: 'numeric', month: 'short' }); }
+function setStatus(t) { document.getElementById('syncStatus').textContent = t; }
+function normalize(t) {
+  const x = { id: Number(t.id) || Date.now(), title: String(t.title || ''), amount: Number(t.amount) || 0,
+    category: t.category || 'Other', person: t.person ? String(t.person) : '', date: t.date };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(x.date || ''))) {
+    let d = new Date(x.date); if (isNaN(d)) d = new Date(x.id); if (isNaN(d)) d = new Date();
+    x.date = isoOf(d);
+  }
+  if (!CATS[x.category]) x.category = 'Other';
+  return x;
+}
+function loadLocal() {
+  try { transactions = (JSON.parse(localStorage.getItem(LS_KEY)) || []).map(normalize); } catch (e) { transactions = []; }
+  try { settings = Object.assign({ budget: 0, catBudgets: {} }, JSON.parse(localStorage.getItem(LS_SET)) || {}); } catch (e) {}
+}
+function saveLocal() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(transactions)); localStorage.setItem(LS_SET, JSON.stringify(settings)); } catch (e) {}
+}
+function cloudSetTx(t) {}
+function cloudDelTx(id) {}
+function cloudSetSettings() {}
+
+// ---------- navigation ----------
+function go(v) {
+  view = v;
+  ['home', 'loans', 'plan'].forEach(n => {
+    document.getElementById('view-' + n).classList.toggle('hidden', n !== v);
+    document.getElementById('tab-' + n).className = 'flex flex-col items-center gap-0.5 text-[11px] font-semibold ' + (n === v ? 'tab-on' : 'tab-off');
+  });
+  if (v === 'plan') renderPlan();
+  window.scrollTo(0, 0);
+}
+function setMode(m) {
+  mode = m; filterCat = 'All';
+  ['spend', 'income'].forEach(k => {
+    const b = document.getElementById('seg-' + k), on = k === m;
+    b.style.background = on ? '#dc2626' : 'transparent'; b.style.color = on ? '#ffffff' : '#d4d4d4';
+  });
+  renderSummary(); renderChips(); renderList();
+}
+function shiftMonth(d) {
+  const [y, m] = month.split('-').map(Number);
+  const dt = new Date(y, m - 1 + d, 1);
+  month = dt.getFullYear() + '-' + pad(dt.getMonth() + 1);
+  refresh();
+}
+function handleHash() {
+  const h = (location.hash || '').replace('#', '');
+  if (h === 'add') { go('home'); openSheet(); }
+  else if (h === 'income') { go('home'); setMode('income'); }
+  else if (h === 'loans' || h === 'plan' || h === 'home') go(h);
+}
+
+// ---------- sheet ----------
+function renderCatPick() {
+  document.getElementById('catPick').innerHTML = Object.keys(CATS).map(k => {
+    const on = k === pickCat;
+    return `<button type="button" onclick="setPick('${jsq(k)}')" class="px-3 h-9 rounded-xl text-xs font-semibold"
+      style="${on ? 'background:#dc2626;color:#fff;border:1px solid #dc2626' : 'background:#0a0a0a;color:#d4d4d4;border:1px solid #2a2a2a'}">${esc(k)}</button>`;
+  }).join('');
+  document.getElementById('personWrap').classList.toggle('hidden', !LOAN.includes(pickCat));
+  document.getElementById('fTitle').placeholder = pickCat === 'Income' ? 'e.g. Salary' : LOAN.includes(pickCat) ? 'e.g. Loan to Ali' : 'e.g. Groceries';
+  if (!editingId) document.getElementById('sheetTitle').textContent = pickCat === 'Income' ? 'New income' : 'New entry';
+}
+function setPick(k) { pickCat = k; renderCatPick(); }
+function openSheet(tx, preset) {
+  editingId = tx ? tx.id : null;
+  document.getElementById('sheetTitle').textContent = tx ? 'Edit entry' : 'New entry';
+  document.getElementById('deleteBtn').classList.toggle('hidden', !tx);
+  document.getElementById('fAmount').value = tx ? tx.amount : '';
+  document.getElementById('fTitle').value = tx ? tx.title : (preset && preset.title) || '';
+  document.getElementById('fPerson').value = tx ? tx.person : (preset && preset.person) || '';
+  document.getElementById('fDate').value = tx ? tx.date : todayISO();
+  if (tx) pickCat = tx.category;
+  else if (preset && preset.category) pickCat = preset.category;
+  else if (view === 'home' && mode === 'income') pickCat = 'Income';
+  else if (pickCat === 'Income' || LOAN.includes(pickCat)) pickCat = 'Food & Dining';
+  const names = [...new Set(transactions.map(t => t.person).filter(Boolean))];
+  document.getElementById('peopleNames').innerHTML = names.map(n => `<option value="${esc(n)}"></option>`).join('');
+  renderCatPick();
+  document.getElementById('sheet').classList.remove('hidden');
+  setTimeout(() => document.getElementById('fAmount').focus(), 60);
+}
+function closeSheet() {
+  document.getElementById('sheet').classList.add('hidden');
+  if (location.hash === '#add') { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }
+}
+function saveEntry(e) {
+  e.preventDefault();
+  const amount = parseFloat(document.getElementById('fAmount').value);
+  const title = document.getElementById('fTitle').value.trim();
+  const date = document.getElementById('fDate').value || todayISO();
+  const person = LOAN.includes(pickCat) ? document.getElementById('fPerson').value.trim() : '';
+  if (!title || !(amount > 0)) return;
+  let tx; const wasEdit = !!editingId;
+  if (wasEdit) {
+    tx = transactions.find(t => t.id === editingId);
+    Object.assign(tx, { title, amount, date, person, category: pickCat });
+  } else {
+    tx = { id: Date.now(), title, amount, date, person, category: pickCat };
+    transactions.push(tx);
+  }
+  month = monthKey(date);
+  if (pickCat === 'Income') mode = 'income'; else if (view === 'home') mode = 'spend';
+  setMode(mode); refresh(); cloudSetTx(tx); closeSheet();
+  toast(wasEdit ? 'Entry updated' : 'Entry saved');
+}
+function deleteEditing() {
+  const tx = transactions.find(t => t.id === editingId);
+  if (!tx) return;
+  transactions = transactions.filter(t => t.id !== tx.id);
+  refresh(); cloudDelTx(tx.id); closeSheet();
+  toast('Entry deleted', () => { transactions.push(tx); refresh(); cloudSetTx(tx); });
+}
+let toastTimer = null;
+function toast(text, undo) {
+  const el = document.getElementById('toast'), btn = document.getElementById('toastAction');
+  document.getElementById('toastText').textContent = text;
+  btn.classList.toggle('hidden', !undo);
+  btn.onclick = () => { el.classList.add('hidden'); if (undo) undo(); };
+  el.classList.remove('hidden');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.add('hidden'), undo ? 5000 : 1800);
+}
+
+// ---------- rendering ----------
+function monthTx() { return transactions.filter(t => monthKey(t.date) === month); }
+function refresh() {
+  transactions.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+  saveLocal(); renderSummary(); renderChips(); renderList(); renderPeople();
+  if (view === 'plan') renderPlan();
+}
+function renderSummary() {
+  document.getElementById('monthLabel').textContent = monthName(month);
+  const mt = monthTx(); let spent = 0, income = 0; const by = {}, src = {};
+  mt.forEach(t => {
+    if (SPEND.includes(t.category)) { spent += t.amount; by[t.category] = (by[t.category] || 0) + t.amount; }
+    else if (t.category === 'Income') { income += t.amount; const k = t.title || 'Income'; src[k] = (src[k] || 0) + t.amount; }
+  });
+  let owed = 0;
+  transactions.forEach(t => { if (t.category === 'Loan Given') owed += t.amount; else if (t.category === 'Loan Repaid') owed -= t.amount; });
+  document.getElementById('sumIncome').textContent = fmt(income);
+  const left = income - spent, leftEl = document.getElementById('sumLeft');
+  leftEl.textContent = (left < 0 ? '− ' : '') + fmt(Math.abs(left)); leftEl.style.color = left < 0 ? '#ef4444' : '#fafafa';
+  document.getElementById('sumOwed').textContent = fmt(owed);
+
+  const isInc = mode === 'income', group = isInc ? src : by, total = isInc ? income : spent;
+  document.getElementById('ringLabel').textContent = isInc ? 'Received' : 'Spent';
+  document.getElementById('ringTotal').textContent = fmt(total);
+  const keys = Object.keys(group).sort((a, b) => group[b] - group[a]);
+  const colorOf = (k, i) => isInc ? SRC_COLORS[i % SRC_COLORS.length] : CATS[k];
+  let acc = 0; const stops = [];
+  keys.forEach((k, i) => {
+    const f = acc / total * 360; acc += group[k]; const t = acc / total * 360;
+    stops.push(`${colorOf(k, i)} ${f.toFixed(1)}deg ${(t - 1.5).toFixed(1)}deg`, `#0a0a0a ${(t - 1.5).toFixed(1)}deg ${t.toFixed(1)}deg`);
+  });
+  document.getElementById('ring').style.background = total ? `conic-gradient(${stops.join(',')})` : '#1f1f1f';
+  document.getElementById('legend').innerHTML = keys.length ? keys.slice(0, 6).map((k, i) => `
+    <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background:${colorOf(k, i)}"></span>
+    <span class="flex-1 truncate text-[#d4d4d4]">${esc(k)}</span><span class="text-[#a3a3a3] tabular-nums">${Math.round(group[k] / total * 100)}%</span></div>`).join('')
+    : `<p class="text-[#8a8a8a]">${isInc ? 'No income this month yet. Tap + to add your salary.' : 'No spending this month yet.'}</p>`;
+
+  const b = Number(settings.budget) || 0, wrap = document.getElementById('budgetWrap');
+  wrap.classList.toggle('hidden', !b || isInc);
+  if (b) {
+    const pct = Math.round(spent / b * 100);
+    document.getElementById('budgetText').textContent = spent <= b ? fmt(b - spent) + ' left of ' + fmt(b) + ' budget' : fmt(spent - b) + ' over budget';
+    document.getElementById('budgetPct').textContent = pct + '%';
+    const bar = document.getElementById('budgetBar');
+    bar.style.width = Math.min(100, pct) + '%'; bar.style.background = pct > 100 ? '#ef4444' : '#991b1b';
+  }
+}
+function renderChips() {
+  const el = document.getElementById('chips');
+  el.classList.toggle('hidden', mode === 'income');
+  if (mode === 'income') return;
+  el.innerHTML = ['All', ...SPEND, ...LOAN].map(k => {
+    const on = k === filterCat;
+    return `<button onclick="setFilter('${jsq(k)}')" class="shrink-0 h-9 px-3.5 rounded-full text-xs font-semibold whitespace-nowrap"
+      style="${on ? 'background:#fafafa;color:#0a0a0a;border:1px solid #fafafa' : 'background:#161616;color:#d4d4d4;border:1px solid #2a2a2a'}">${esc(k)}</button>`;
+  }).join('');
+}
+function setFilter(k) { filterCat = k; renderChips(); renderList(); }
+function renderList() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const isInc = mode === 'income';
+  document.getElementById('listTitle').textContent = isInc ? 'Salary & other income' : 'Entries';
+  const list = monthTx().filter(t => (isInc ? t.category === 'Income' : t.category !== 'Income' && (filterCat === 'All' || t.category === filterCat)) &&
+    (t.title.toLowerCase().includes(q) || t.person.toLowerCase().includes(q)));
+  document.getElementById('txCount').textContent = list.length + (list.length === 1 ? ' item' : ' items');
+  const el = document.getElementById('transactionList');
+  if (!list.length) { el.innerHTML = `<div class="py-12 text-center text-[#8a8a8a] text-sm">Nothing here for ${esc(monthName(month))}<br><button onclick="openSheet()" class="mt-3 text-[#f87171] font-semibold">+ Add ${isInc ? 'income' : 'an entry'}</button></div>`; return; }
+  let html = '', lastDate = '';
+  list.forEach(t => {
+    if (t.date !== lastDate) { lastDate = t.date; html += `<div class="pt-2 text-[11px] font-semibold text-[#8a8a8a] uppercase tracking-wider">${esc(niceDate(t.date))}</div>`; }
+    const c = CATS[t.category];
+    const plus = t.category === 'Income' || t.category === 'Loan Repaid', given = t.category === 'Loan Given';
+    html += `<button onclick="editTx(${t.id})" class="w-full text-left p-3 rounded-2xl bg-[#141414] flex items-center gap-3 active:bg-[#1f1f1f]">
+      <span class="sg w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-bold text-sm" style="background:${c}22;color:${c}">${esc(t.category.charAt(0))}</span>
+      <span class="flex-1 min-w-0">
+        <span class="block font-semibold text-sm truncate">${esc(t.title)}</span>
+        <span class="block text-[11px] text-[#a3a3a3] truncate">${esc(t.category)}${t.person ? ' · ' + esc(t.person) : ''}</span>
+      </span>
+      <span class="sg font-semibold text-sm tabular-nums" style="color:${plus ? '#fca5a5' : given ? '#f87171' : '#fafafa'}">${plus ? '+ ' : given ? '→ ' : '− '}${fmt(t.amount)}</span></button>`;
+  });
+  el.innerHTML = html;
+}
+function editTx(id) { const t = transactions.find(x => x.id === id); if (t) openSheet(t); }
+function renderPeople() {
+  const ppl = {};
+  transactions.filter(t => LOAN.includes(t.category)).forEach(t => {
+    const n = t.person || 'No name';
+    ppl[n] = ppl[n] || { given: 0, repaid: 0 };
+    if (t.category === 'Loan Given') ppl[n].given += t.amount; else ppl[n].repaid += t.amount;
+  });
+  const names = Object.keys(ppl).sort((a, b) => (ppl[b].given - ppl[b].repaid) - (ppl[a].given - ppl[a].repaid));
+  const el = document.getElementById('peopleList');
+  if (!names.length) { el.innerHTML = '<div class="card rounded-2xl py-12 text-center text-[#8a8a8a] text-sm">No loans recorded yet<br><button onclick="openSheet(null,{category:\'Loan Given\'})" class="mt-3 text-[#f87171] font-semibold">+ Record a loan</button></div>'; return; }
+  el.innerHTML = names.map(n => {
+    const p = ppl[n], left = p.given - p.repaid, pct = p.given ? Math.min(100, Math.round(p.repaid / p.given * 100)) : 100;
+    const done = left <= 0, j = jsq(n);
+    return `<div class="card rounded-2xl p-4">
+      <div class="flex items-center gap-3">
+        <span class="sg w-11 h-11 rounded-full bg-[#450a0a] text-[#fca5a5] flex items-center justify-center font-bold">${esc(n.charAt(0).toUpperCase())}</span>
+        <div class="flex-1 min-w-0"><p class="font-semibold text-sm truncate">${esc(n)}</p>
+          <p class="text-[11px] text-[#a3a3a3]">Lent ${fmt(p.given)} · back ${fmt(p.repaid)}</p></div>
+        <span class="text-[11px] font-bold px-2 py-1 rounded-lg ${done ? 'bg-[#262626] text-[#fafafa]' : 'bg-[#450a0a] text-[#fca5a5]'}">${done ? (left < 0 ? 'Overpaid' : 'Settled') : pct + '% back'}</span>
+      </div>
+      <div class="h-2.5 rounded-full bg-[#262626] overflow-hidden mt-3"><div class="h-full rounded-full bg-[#dc2626]" style="width:${pct}%"></div></div>
+      <div class="flex justify-between items-center mt-3 gap-2">
+        <span class="text-sm text-[#d4d4d4]">${done ? 'Nothing owed' : 'Owes <b class="text-[#fafafa]">' + fmt(left) + '</b>'}</span>
+        <div class="flex gap-2">
+          <button onclick="openSheet(null,{category:'Loan Given',person:'${j}',title:'Loan to ${j}'})" class="h-9 px-3 rounded-lg text-xs font-semibold bg-[#1f1f1f] text-[#d4d4d4] border border-[#2a2a2a]">+ Lend</button>
+          ${done ? '' : `<button onclick="openSheet(null,{category:'Loan Repaid',person:'${j}',title:'${j} repaid'})" class="h-9 px-3 rounded-lg text-xs font-semibold bg-[#dc2626] text-white">Repayment</button>`}
+        </div>
+      </div></div>`;
+  }).join('');
+}
+function renderPlan() {
+  document.getElementById('budgetTotal').value = settings.budget || '';
+  const by = {}; monthTx().forEach(t => { if (SPEND.includes(t.category)) by[t.category] = (by[t.category] || 0) + t.amount; });
+  document.getElementById('catBudgets').innerHTML = SPEND.map(k => {
+    const b = Number(settings.catBudgets[k]) || 0, sp = by[k] || 0, pct = b ? Math.round(sp / b * 100) : 0, over = pct > 100;
+    return `<div class="py-2.5 border-b border-[#262626]">
+      <div class="flex items-center justify-between gap-3">
+        <span class="text-sm flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-sm" style="background:${CATS[k]}"></span>${esc(k)}</span>
+        <input data-cat="${esc(k)}" type="number" inputmode="decimal" placeholder="₨" value="${b || ''}" class="cat-budget field w-32 rounded-lg px-3 py-2 text-sm text-right">
+      </div>
+      <div class="flex items-center gap-2 mt-1.5">
+        <div class="flex-1 h-1.5 rounded-full bg-[#262626] overflow-hidden"><div class="h-full rounded-full" style="width:${b ? Math.min(100, pct) : 0}%;background:${over ? '#ef4444' : '#991b1b'}"></div></div>
+        <span class="text-[11px] w-32 text-right ${over ? 'text-[#f87171] font-bold' : 'text-[#a3a3a3]'}">${fmt(sp)}${b ? ' · ' + pct + '%' : ''}</span>
+      </div></div>`;
+  }).join('');
+}
+function saveBudgets() {
+  settings.budget = parseFloat(document.getElementById('budgetTotal').value) || 0;
+  settings.catBudgets = {};
+  document.querySelectorAll('.cat-budget').forEach(i => { const v = parseFloat(i.value); if (v > 0) settings.catBudgets[i.dataset.cat] = v; });
+  saveLocal(); cloudSetSettings(); renderSummary(); renderPlan(); toast('Budgets saved');
+}
+function copyCSV() {
+  const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const csv = ['Date,Title,Category,Person,Amount (PKR)'].concat(
+    transactions.map(t => [t.date, q(t.title), q(t.category), q(t.person), t.amount].join(','))).join('\n');
+  const box = document.getElementById('csvBox');
+  const fallback = () => { box.value = csv; box.classList.remove('hidden'); box.select(); toast('Select and copy the text below'); };
+  try { navigator.clipboard.writeText(csv).then(() => toast('Copied ' + transactions.length + ' entries'), fallback); } catch (e) { fallback(); }
+}
+
+
+function parseCSV(text) {
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(cur); cur = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; }
+    else cur += c;
+  }
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim() !== ''));
+}
+function importCSV() {
+  const rows = parseCSV(document.getElementById('importBox').value.trim());
+  if (!rows.length) { toast('Paste the CSV first'); return; }
+  const start = /date/i.test(rows[0][0] || '') ? 1 : 0;
+  const seen = new Set(transactions.map(t => [t.date, t.title, t.category, t.amount].join('|')));
+  let added = 0, base = Date.now();
+  rows.slice(start).forEach(r => {
+    const t = normalize({ id: base + added, date: (r[0] || '').trim(), title: (r[1] || '').trim(), category: (r[2] || '').trim(),
+      person: (r[3] || '').trim(), amount: parseFloat(String(r[4] || '').replace(/[^0-9.]/g, '')) });
+    if (!t.title || !(t.amount > 0)) return;
+    const k = [t.date, t.title, t.category, t.amount].join('|');
+    if (seen.has(k)) return; seen.add(k); transactions.push(t); added++;
+  });
+  document.getElementById('importBox').value = '';
+  refresh(); toast(added ? 'Imported ' + added + ' entries' : 'Nothing new to import');
+}
+// ---------- start ----------
+loadLocal();
+go('home');
+setMode('spend');
+refresh();
+handleHash();
+window.addEventListener('hashchange', handleHash);
+document.getElementById('sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
+
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {})); }
+</script>
+</body>
+</html>

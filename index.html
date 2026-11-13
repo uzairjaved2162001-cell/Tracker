@@ -66,7 +66,7 @@
     <div class="grid grid-cols-3 gap-2">
       <div class="card rounded-2xl p-3"><p class="text-[11px] text-[#a3a3a3]">Income</p><p id="sumIncome" class="sg text-[15px] font-bold text-[#fca5a5] mt-0.5">₨ 0</p></div>
       <div class="card rounded-2xl p-3"><p class="text-[11px] text-[#a3a3a3]">Left over</p><p id="sumLeft" class="sg text-[15px] font-bold mt-0.5">₨ 0</p></div>
-      <div class="card rounded-2xl p-3"><p class="text-[11px] text-[#a3a3a3]">Owed to you</p><p id="sumOwed" class="sg text-[15px] font-bold text-[#f87171] mt-0.5">₨ 0</p></div>
+      <div class="card rounded-2xl p-3"><p class="text-[11px] text-[#a3a3a3]">Owed to you</p><p id="sumOwed" class="sg text-[15px] font-bold text-[#f87171] mt-0.5">₨ 0</p><p id="sumOweSub" class="text-[10px] text-[#d4d4d4] mt-0.5"></p></div>
     </div>
 
     <div id="budgetWrap" class="card rounded-2xl p-3 mt-2 hidden">
@@ -87,7 +87,7 @@
   <!-- LOANS -->
   <section id="view-loans" class="hidden">
     <h2 class="sg text-lg font-bold mb-1">Loans</h2>
-    <p class="text-xs text-[#a3a3a3] mb-3">All-time balances by person. Add a person's name when you record a loan or repayment.</p>
+    <p class="text-xs text-[#a3a3a3] mb-3">Money you lent and money you borrowed, by person (all time). Use the same name each time so balances add up.</p>
     <div id="peopleList" class="space-y-3"></div>
   </section>
 
@@ -184,10 +184,12 @@
 const LS_KEY = 'pkr_transactions', LS_SET = 'pkr_settings';
 const CATS = {
   'Food & Dining': '#ef4444', 'Utilities': '#fafafa', 'Transport': '#991b1b', 'Shopping': '#f87171',
-  'Other': '#737373', 'Income': '#fca5a5', 'Loan Given': '#b91c1c', 'Loan Repaid': '#fecaca'
+  'Other': '#737373', 'Income': '#fca5a5', 'Loan Given': '#b91c1c', 'Loan Repaid': '#fecaca',
+  'Loan Taken': '#d4d4d4', 'I Repaid': '#7f1d1d'
 };
 const SPEND = ['Food & Dining', 'Utilities', 'Transport', 'Shopping', 'Other'];
-const LOAN = ['Loan Given', 'Loan Repaid'];
+const LEND = ['Loan Given', 'Loan Repaid'], BORROW = ['Loan Taken', 'I Repaid'];
+const LOAN = LEND.concat(BORROW);
 const SRC_COLORS = ['#dc2626', '#fafafa', '#7f1d1d', '#f87171', '#737373'];
 
 let transactions = [], settings = { budget: 0, catBudgets: {} };
@@ -265,7 +267,7 @@ function renderCatPick() {
       style="${on ? 'background:#dc2626;color:#fff;border:1px solid #dc2626' : 'background:#0a0a0a;color:#d4d4d4;border:1px solid #2a2a2a'}">${esc(k)}</button>`;
   }).join('');
   document.getElementById('personWrap').classList.toggle('hidden', !LOAN.includes(pickCat));
-  document.getElementById('fTitle').placeholder = pickCat === 'Income' ? 'e.g. Salary' : LOAN.includes(pickCat) ? 'e.g. Loan to Ali' : 'e.g. Groceries';
+  document.getElementById('fTitle').placeholder = pickCat === 'Income' ? 'e.g. Salary' : pickCat === 'Loan Given' ? 'e.g. Loan to Ali' : pickCat === 'Loan Repaid' ? 'e.g. Ali paid back' : pickCat === 'Loan Taken' ? 'e.g. Borrowed from Ahmed' : pickCat === 'I Repaid' ? 'e.g. Paid Ahmed back' : 'e.g. Groceries';
   if (!editingId) document.getElementById('sheetTitle').textContent = pickCat === 'Income' ? 'New income' : 'New entry';
 }
 function setPick(k) { pickCat = k; renderCatPick(); }
@@ -343,7 +345,9 @@ function renderSummary() {
     else if (t.category === 'Income') { income += t.amount; const k = t.title || 'Income'; src[k] = (src[k] || 0) + t.amount; }
   });
   let owed = 0;
-  transactions.forEach(t => { if (t.category === 'Loan Given') owed += t.amount; else if (t.category === 'Loan Repaid') owed -= t.amount; });
+  let iOwe = 0;
+  transactions.forEach(t => { if (t.category === 'Loan Given') owed += t.amount; else if (t.category === 'Loan Repaid') owed -= t.amount; else if (t.category === 'Loan Taken') iOwe += t.amount; else if (t.category === 'I Repaid') iOwe -= t.amount; });
+  document.getElementById('sumOweSub').textContent = iOwe > 0 ? 'You owe ' + fmt(iOwe) : '';
   document.getElementById('sumIncome').textContent = fmt(income);
   const left = income - spent, leftEl = document.getElementById('sumLeft');
   leftEl.textContent = (left < 0 ? '− ' : '') + fmt(Math.abs(left)); leftEl.style.color = left < 0 ? '#ef4444' : '#fafafa';
@@ -399,7 +403,7 @@ function renderList() {
   list.forEach(t => {
     if (t.date !== lastDate) { lastDate = t.date; html += `<div class="pt-2 text-[11px] font-semibold text-[#8a8a8a] uppercase tracking-wider">${esc(niceDate(t.date))}</div>`; }
     const c = CATS[t.category];
-    const plus = t.category === 'Income' || t.category === 'Loan Repaid', given = t.category === 'Loan Given';
+    const plus = t.category === 'Income' || t.category === 'Loan Repaid' || t.category === 'Loan Taken', given = t.category === 'Loan Given' || t.category === 'I Repaid';
     html += `<button onclick="editTx(${t.id})" class="w-full text-left p-3 rounded-2xl bg-[#141414] flex items-center gap-3 active:bg-[#1f1f1f]">
       <span class="sg w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-bold text-sm" style="background:${c}22;color:${c}">${esc(t.category.charAt(0))}</span>
       <span class="flex-1 min-w-0">
@@ -415,31 +419,60 @@ function renderPeople() {
   const ppl = {};
   transactions.filter(t => LOAN.includes(t.category)).forEach(t => {
     const n = t.person || 'No name';
-    ppl[n] = ppl[n] || { given: 0, repaid: 0 };
-    if (t.category === 'Loan Given') ppl[n].given += t.amount; else ppl[n].repaid += t.amount;
+    const p = ppl[n] = ppl[n] || { lent: 0, back: 0, borrowed: 0, paid: 0 };
+    if (t.category === 'Loan Given') p.lent += t.amount;
+    else if (t.category === 'Loan Repaid') p.back += t.amount;
+    else if (t.category === 'Loan Taken') p.borrowed += t.amount;
+    else p.paid += t.amount;
   });
-  const names = Object.keys(ppl).sort((a, b) => (ppl[b].given - ppl[b].repaid) - (ppl[a].given - ppl[a].repaid));
+  const names = Object.keys(ppl);
   const el = document.getElementById('peopleList');
-  if (!names.length) { el.innerHTML = '<div class="card rounded-2xl py-12 text-center text-[#8a8a8a] text-sm">No loans recorded yet<br><button onclick="openSheet(null,{category:\'Loan Given\'})" class="mt-3 text-[#f87171] font-semibold">+ Record a loan</button></div>'; return; }
-  el.innerHTML = names.map(n => {
-    const p = ppl[n], left = p.given - p.repaid, pct = p.given ? Math.min(100, Math.round(p.repaid / p.given * 100)) : 100;
-    const done = left <= 0, j = jsq(n);
+  let toMe = 0, byMe = 0;
+  names.forEach(n => { const p = ppl[n]; toMe += Math.max(0, p.lent - p.back); byMe += Math.max(0, p.borrowed - p.paid); });
+  const totals = `<div class="grid grid-cols-2 gap-2">
+      <div class="card rounded-2xl p-3"><p class="text-[11px] text-[#a3a3a3]">Owed to you</p><p class="sg text-lg font-bold text-[#f87171]">${fmt(toMe)}</p></div>
+      <div class="card rounded-2xl p-3"><p class="text-[11px] text-[#a3a3a3]">You owe</p><p class="sg text-lg font-bold text-[#fafafa]">${fmt(byMe)}</p></div>
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+      <button onclick="openSheet(null,{category:'Loan Given'})" class="h-11 rounded-xl text-sm font-semibold bg-[#dc2626] text-white">+ I lent money</button>
+      <button onclick="openSheet(null,{category:'Loan Taken'})" class="h-11 rounded-xl text-sm font-semibold bg-[#1f1f1f] text-[#fafafa] border border-[#2a2a2a]">+ I borrowed</button>
+    </div>`;
+  if (!names.length) { el.innerHTML = totals + '<div class="card rounded-2xl py-10 text-center text-[#8a8a8a] text-sm">No loans recorded yet</div>'; return; }
+  const card = (n) => {
+    const p = ppl[n], j = jsq(n);
+    const theyOwe = p.lent - p.back, iOwe = p.borrowed - p.paid;
+    const lines = [], btns = [], bars = [];
+    if (p.lent) {
+      const pct = Math.min(100, Math.round(p.back / p.lent * 100));
+      lines.push(`<p class="text-[11px] text-[#a3a3a3]">You lent ${fmt(p.lent)} · got back ${fmt(p.back)}</p>`);
+      bars.push(`<div class="mt-2"><div class="flex justify-between text-[11px] mb-1"><span class="text-[#d4d4d4]">${theyOwe > 0 ? 'Owes you <b class="text-[#f87171]">' + fmt(theyOwe) + '</b>' : 'Paid you back in full'}</span><span class="text-[#a3a3a3]">${pct}%</span></div>
+        <div class="h-2 rounded-full bg-[#262626] overflow-hidden"><div class="h-full rounded-full bg-[#dc2626]" style="width:${pct}%"></div></div></div>`);
+      if (theyOwe > 0) btns.push(`<button onclick="openSheet(null,{category:'Loan Repaid',person:'${j}',title:'${j} paid back'})" class="h-9 px-3 rounded-lg text-xs font-semibold bg-[#dc2626] text-white">They paid back</button>`);
+    }
+    if (p.borrowed) {
+      const pct = Math.min(100, Math.round(p.paid / p.borrowed * 100));
+      lines.push(`<p class="text-[11px] text-[#a3a3a3]">You borrowed ${fmt(p.borrowed)} · paid back ${fmt(p.paid)}</p>`);
+      bars.push(`<div class="mt-2"><div class="flex justify-between text-[11px] mb-1"><span class="text-[#d4d4d4]">${iOwe > 0 ? 'You owe <b class="text-[#fafafa]">' + fmt(iOwe) + '</b>' : 'You paid back in full'}</span><span class="text-[#a3a3a3]">${pct}%</span></div>
+        <div class="h-2 rounded-full bg-[#262626] overflow-hidden"><div class="h-full rounded-full bg-[#d4d4d4]" style="width:${pct}%"></div></div></div>`);
+      if (iOwe > 0) btns.push(`<button onclick="openSheet(null,{category:'I Repaid',person:'${j}',title:'Paid ${j} back'})" class="h-9 px-3 rounded-lg text-xs font-semibold bg-[#fafafa] text-[#0a0a0a]">I paid back</button>`);
+    }
+    const settled = theyOwe <= 0 && iOwe <= 0;
+    const badge = settled ? '<span class="text-[11px] font-bold px-2 py-1 rounded-lg bg-[#262626] text-[#fafafa]">Settled</span>'
+      : theyOwe > 0 && iOwe <= 0 ? '<span class="text-[11px] font-bold px-2 py-1 rounded-lg bg-[#450a0a] text-[#fca5a5]">Owes you</span>'
+      : iOwe > 0 && theyOwe <= 0 ? '<span class="text-[11px] font-bold px-2 py-1 rounded-lg bg-[#262626] text-[#fafafa]">You owe</span>'
+      : '<span class="text-[11px] font-bold px-2 py-1 rounded-lg bg-[#262626] text-[#fafafa]">Both ways</span>';
+    btns.push(`<button onclick="openSheet(null,{category:'Loan Given',person:'${j}',title:'Loan to ${j}'})" class="h-9 px-3 rounded-lg text-xs font-semibold bg-[#1f1f1f] text-[#d4d4d4] border border-[#2a2a2a]">+ Lend</button>`);
+    btns.push(`<button onclick="openSheet(null,{category:'Loan Taken',person:'${j}',title:'Borrowed from ${j}'})" class="h-9 px-3 rounded-lg text-xs font-semibold bg-[#1f1f1f] text-[#d4d4d4] border border-[#2a2a2a]">+ Borrow</button>`);
     return `<div class="card rounded-2xl p-4">
       <div class="flex items-center gap-3">
         <span class="sg w-11 h-11 rounded-full bg-[#450a0a] text-[#fca5a5] flex items-center justify-center font-bold">${esc(n.charAt(0).toUpperCase())}</span>
-        <div class="flex-1 min-w-0"><p class="font-semibold text-sm truncate">${esc(n)}</p>
-          <p class="text-[11px] text-[#a3a3a3]">Lent ${fmt(p.given)} · back ${fmt(p.repaid)}</p></div>
-        <span class="text-[11px] font-bold px-2 py-1 rounded-lg ${done ? 'bg-[#262626] text-[#fafafa]' : 'bg-[#450a0a] text-[#fca5a5]'}">${done ? (left < 0 ? 'Overpaid' : 'Settled') : pct + '% back'}</span>
-      </div>
-      <div class="h-2.5 rounded-full bg-[#262626] overflow-hidden mt-3"><div class="h-full rounded-full bg-[#dc2626]" style="width:${pct}%"></div></div>
-      <div class="flex justify-between items-center mt-3 gap-2">
-        <span class="text-sm text-[#d4d4d4]">${done ? 'Nothing owed' : 'Owes <b class="text-[#fafafa]">' + fmt(left) + '</b>'}</span>
-        <div class="flex gap-2">
-          <button onclick="openSheet(null,{category:'Loan Given',person:'${j}',title:'Loan to ${j}'})" class="h-9 px-3 rounded-lg text-xs font-semibold bg-[#1f1f1f] text-[#d4d4d4] border border-[#2a2a2a]">+ Lend</button>
-          ${done ? '' : `<button onclick="openSheet(null,{category:'Loan Repaid',person:'${j}',title:'${j} repaid'})" class="h-9 px-3 rounded-lg text-xs font-semibold bg-[#dc2626] text-white">Repayment</button>`}
-        </div>
-      </div></div>`;
-  }).join('');
+        <div class="flex-1 min-w-0"><p class="font-semibold text-sm truncate">${esc(n)}</p>${lines.join('')}</div>${badge}
+      </div>${bars.join('')}
+      <div class="flex flex-wrap gap-2 mt-3">${btns.join('')}</div></div>`;
+  };
+  const score = n => { const p = ppl[n]; return Math.max(0, p.lent - p.back) + Math.max(0, p.borrowed - p.paid); };
+  names.sort((a, b) => score(b) - score(a));
+  el.innerHTML = totals + names.map(card).join('');
 }
 function renderPlan() {
   document.getElementById('budgetTotal').value = settings.budget || '';
